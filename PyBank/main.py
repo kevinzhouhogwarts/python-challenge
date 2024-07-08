@@ -3,64 +3,82 @@ import csv
 from datetime import date, datetime
 from statistics import mean
 
+# Encountered file not found error, then discovered the working directory was the parent directory (python-challenge), not \python-challenge\PyBank\.
+# Tried copying code to a new .py file but encountered same error. Maybe because I created \PyBank\ folder after starting work on original main.py.
+# Resorted to using below two lines to explicitly specify the working directory
+script_dir = os.path.dirname(os.path.abspath(__file__)) # locate directory of this file
+os.chdir(script_dir) # change working directory to file directory
+
 # Read the csv file
 budget_data_csv = os.path.join("..", "Resources", "budget_data.csv")
-print("Current Working Directory:", os.getcwd())
+print("CSV Path:", budget_data_csv)
 
 with open(budget_data_csv) as budget_data:
     csv_reader = csv.reader(budget_data, delimiter=",")
 
     csv_header = next(csv_reader)
 
-    date_string = []
-    profit = []
+    net_profit = 0
+    unique_months_list = [] # list to hold unique date strings
+    profit_change_list = [] # list to hold change of profit between months
+    starting_profit = 0 # hold profit/loss of the previous month during iteration of profit changes
+    greatest_increase = {"amount": 0, "month_year": "Jan-20"}
+    greatest_decrease = {"amount": 0, "month_year": "Jan-20"}
+    results = [] # list to hold printed text results
 
-    index_date = csv_header.index("Date")
-    index_profit = csv_header.index("Profit/Losses")
+    for index, row in enumerate(csv_reader):
+        # calculate the net profit
+        profit = float(row[1]) # extract the profit from second column of csv
+        net_profit = net_profit + profit # add profit to net profit
 
-    for row in csv_reader: # Pass all values in the two columns to new lists
-        date_string.append(row[index_date])
-        profit.append(float(row[index_profit]))
-
-print(f"Financial Analysis")
-print('-' * 15)
+        # calculate the number of unique months
+        month_year = row[0]
+        if month_year not in unique_months_list:
+            unique_months_list.append(month_year) # if datetime does not appear in list, then append
+        else:
+            pass # otherwise, do nothing
         
-# Find the total number of months
-datetime = [datetime.strptime(date, "%b-%y") for date in date_string] # convert to datetime type
-month_year_list = [(datetime.month, datetime.year) for datetime in datetime] # convert to list of month & year tuples
-unique_months = set(month_year_list) # calculate number of unique tuples in list
+        # create list of profit changes
+        if index == 0:
+            profit_change = 0
+        else:
+            profit_change = float(row[1]) - starting_profit
+            profit_change_list.append(profit_change)
+        starting_profit = float(row[1])
 
-print(f"Total Months: " + str(len(unique_months)))
+        # compare profit changes to find min and max
+        if profit_change > greatest_increase["amount"]:
+            greatest_increase["amount"] = profit_change
+            greatest_increase["month_year"] = month_year
+        else:
+            pass
+        
+        if profit_change < greatest_decrease["amount"]:
+            greatest_decrease["amount"] = profit_change
+            greatest_decrease["month_year"] = month_year
+        else:
+            pass
 
-# Find the net profit/loss
-profit_int = [int(string) for string in profit] # convert list of profits from string to integer in order to call sum()
-net_profit = sum(profit_int)
-print(f"Total: " + "${:,}".format(net_profit)) # format the integer as currency
+def print_append(text): # define new function to both print to terminal and append printed text to list
+    print(text)
+    results.append(text + "\n")
 
-# Sort the data by ascending date (not needed with this csv though)
-data = zip(datetime, profit_int) # combine two lists
-sorted = sorted(data, reverse=False)
+print_append(f"Financial Analysis")
+print_append('-' * 15)
 
-# Changes in "Profit/Losses"
-profit_change = [0] # set change in profit of first month to zero since there is no prior data
+unique_months = len(unique_months_list)
+print_append(f"Total Months: " + str(unique_months))
 
-start_value = sorted[0][1] # sets beginning profit to profit value from the first row
-for value in sorted[1:]: # iterates over all rows starting from row index 1
-    change = value[1]-start_value
-    start_value = value[1] # after calculating the profit change, update the begining profit for the next iteration
-    profit_change.append(change) # add profit change to list
-average_profit_change = mean(profit_change)
-print(f"Average Change: " + str(average_profit_change))
+print_append(f"Total Profit: " + "${:,}".format(net_profit)) # format the integer as currency
 
-# Greatest increase in profits (date and amount) during period
-greatest_increase = max(profit_change)
-greatest_increase_index = profit_change.index(greatest_increase)
-print(f"Greatest Increase in Profits: " + str(greatest_increase) + " in " + str(sorted[greatest_increase_index][0].strftime("%b-%Y")))
+average_profit_change = mean(profit_change_list)
+print_append(f"Average Change: " + str(average_profit_change))
 
-# Greatest decrease in profits during period
-greatest_decrease = min(profit_change)
-greatest_decrease_index = profit_change.index(greatest_decrease)
-print(f"Greatest Decrease in Profits: " + str(greatest_decrease) + " in " + str(sorted[greatest_decrease_index][0].strftime("%b-%Y")))
+print_append(f"Greatest Increase in Profits: " + str(greatest_increase["amount"]) + " in " + str(greatest_increase["month_year"]))
 
-# Export a text file of results
-pybank
+print_append(f"Greatest Decrease in Profits: " + str(greatest_decrease["amount"]) + " in " + str(greatest_decrease["month_year"]))
+
+# export list of printed text to text file
+output_path = os.path.join("..", "analysis", "profit_results.txt")
+with open(output_path, "w") as file:
+    file.writelines(results)
